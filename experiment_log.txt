@@ -1,0 +1,69 @@
+
+========================================
+Experiment 1
+Parameters Chosen:
+Number of Layers: 3 (Encoder + Decoder)
+Neurons: (30, 16, 8, 16, 30)
+Error Function: MSE
+Learning Rate: 0.003
+Epochs: 300
+Batch Size: 256
+Train/Test Split: 80:20
+Dataset Size: 284807
+Threshold: 1.863606
+
+Results:
+Precision: 0.0299
+Recall: 0.8760
+F1 Score: 0.0579
+ROC-AUC: 0.9553
+True Negatives: 270344
+False Positives: 13971
+False Negatives: 61
+True Positives: 431
+
+========================================
+Experiment 2
+Parameters Chosen:
+Number of Layers: 3 (Encoder + Decoder)
+Neurons: (30, 16, 8, 16, 30)
+Error Function: MSE
+Learning Rate: 0.003
+Epochs: 300
+Batch Size: 256
+Train/Test Split: 80:20
+Dataset Size: 284807
+Threshold: 2.563626
+
+Results:
+Precision: 0.0476
+Recall: 0.8598
+F1 Score: 0.0902
+ROC-AUC: 0.9553
+True Negatives: 275852
+False Positives: 8463
+False Negatives: 69
+True Positives: 423
+
+========================================
+Experiment 3
+Parameters Chosen:
+Number of Layers: 3 (Encoder + Decoder)
+Neurons: (30, 16, 8, 16, 30)
+Error Function: MSE
+Learning Rate: 0.003
+Epochs: 300
+Batch Size: 256
+Train/Test Split: 80:20
+Dataset Size: 284807
+Threshold: 2.563626
+
+Results:
+Precision: 0.0476
+Recall: 0.8598
+F1 Score: 0.0902
+ROC-AUC: 0.9553
+True Negatives: 275852
+False Positives: 8463
+False Negatives: 69
+True Positives: 423

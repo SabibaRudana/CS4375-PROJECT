@@ -1,8 +1,9 @@
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import precision_score, recall_score, f1_score, roc_auc_score, confusion_matrix
 import numpy as np
-
+import matplotlib.pyplot as plt
 
 url = "https://detect-credit-card-fraud.s3.us-east-2.amazonaws.com/creditcard.csv"
 df = pd.read_csv(url)
@@ -54,24 +55,7 @@ def encoder_forward(x, weights, biases):
 
     return A, activations   # A = compressed representation
 
-if __name__ == "__main__":
-
-    # testing
-    input_dim = x_train.shape[1]
-    hidden_dims = [16, 8]
-
-    encoder_weights, encoder_biases = initialize_encoder(input_dim, hidden_dims)
-
-    latent_representation, activations = encoder_forward(
-        x_train,
-        encoder_weights,
-        encoder_biases
-    )
-
-    print("Latent shape:", latent_representation.shape) # (n_samples, 8)
-
 # DECODER 
-
 def initialize_decoder(latent_dim, hidden_dims, output_dim):
     weights = [] 
     biases = []
@@ -128,22 +112,6 @@ def decoder_backward(grad_output, activations, weights):
             grad = grad * relu_derivative(activations[i])
     grad_input = np.dot(grad, weights[0].T)
     return grad_weights, grad_biases, grad_input
-
-# test cases
-input_dim = x_train.shape[1] #30
-latent_dim = 8
-hidden_dims = [16] # mirror of encoder hidden layers in reverse
-
-dec_weights, dec_biases = initialize_decoder(latent_dim, hidden_dims, input_dim)
-reconstructed, dec_activations = decoder_forward(
-    latent_representation,
-    dec_weights,
-    dec_biases
-)
-
-loss = mse_loss(x_train, reconstructed)
-print("Reconstructed shape: ", reconstructed.shape)
-print("Initial MSE loss:", loss)
 
 # ENCODER BACKWARD
 def encoder_backward(grad_input, activations, weights):
@@ -216,71 +184,138 @@ def train_autoencoder(x_train, encoder_weights, encoder_biases, dec_weights, dec
                 break
     return encoder_weights, encoder_biases, dec_weights, dec_biases, losses
 
-# Runs training
-print("\nTraining autoencoder...")
-encoder_weights, encoder_biases, dec_weights, dec_biases, losses = train_autoencoder(
-    x_train, encoder_weights, encoder_biases, dec_weights, dec_biases, epochs=300, learning_rate=0.003, patience=20
-)
+def log_experiment(file_name, params, results):
+    # Count existing experiments
+    try:
+        with open(file_name, "r") as f:
+            lines = f.readlines()
+            exp_count = sum(1 for line in lines if line.startswith("Experiment"))
+    except FileNotFoundError:
+        exp_count = 0
 
-# ANOMALY DETECTION
-print("\nRunning anomaly detection...")
-from sklearn.metrics import precision_score, recall_score, f1_score, roc_auc_score, confusion_matrix
+    exp_number = exp_count + 1
 
-# Gets reconstruction error for the test set (normal transactions)
-latent_test, _ = encoder_forward(x_test, encoder_weights, encoder_biases)
-reconstructed_test, _ = decoder_forward(latent_test, dec_weights, dec_biases)
-test_errors = np.mean((x_test - reconstructed_test) ** 2, axis=1)
+    with open(file_name, "a") as f:
+        f.write(f"\n{'='*40}\n")
+        f.write(f"Experiment {exp_number}\n")
+        f.write("Parameters Chosen:\n")
 
-# Tests ALL transactions (normal + fraud)
-x_all = scaler.transform(x.values)
-latent_all, _ = encoder_forward(x_all, encoder_weights, encoder_biases)
-reconstructed_all, _ = decoder_forward(latent_all, dec_weights, dec_biases)
-all_errors = np.mean((x_all - reconstructed_all) ** 2, axis=1)
+        for key, value in params.items():
+            f.write(f"{key}: {value}\n")
 
-# Threshold tuning analysis
-print("\nThreshold Tuning Analysis:")
-print(f"{'Percentile':<15} {'Threshold':<15} {'Precision':<12} {'Recall':<12} {'F1':<12}")
-print("-" * 65)
+        f.write("\nResults:\n")
 
-for percentile in [90, 93, 95, 97, 99]:
-    thresh = np.percentile(test_errors, percentile)
-    y_pred_thresh = (all_errors > thresh).astype(int)
-    p = precision_score(y, y_pred_thresh, zero_division=0)
-    r = recall_score(y, y_pred_thresh, zero_division=0)
-    f = f1_score(y, y_pred_thresh, zero_division=0)
-    print(f"{percentile:<15} {thresh:<15.6f} {p:<12.4f} {r:<12.4f} {f:<12.4f}")
+        for key, value in results.items():
+            f.write(f"{key}: {value}\n")
 
-# Using 95th percentile as final threshold
-threshold = np.percentile(test_errors, 95)
-print(f"\nFinal Anomaly Threshold (95th percentile): {threshold:.6f}")
+if __name__ == "__main__":
 
-# Flags anything above threshold as fraud
-y_pred = (all_errors > threshold).astype(int)
+    np.random.seed(42)
 
-# EVALUATION
-from sklearn.metrics import precision_score, recall_score, f1_score, roc_auc_score, confusion_matrix
+    # Initialize
+    input_dim = x_train.shape[1]
+    latent_dim = 8
+    encoder_hidden = [16, 8]
+    decoder_hidden = [16]
 
-print("\nEvaluation Results:")
-print(f"Precision: {precision_score(y, y_pred):.4f}")
-print(f"Recall: {recall_score(y, y_pred):.4f}")
-print(f"F1 Score: {f1_score(y, y_pred):.4f}")
-print(f"ROC-AUC: {roc_auc_score(y, all_errors):.4f}")
+    encoder_weights, encoder_biases = initialize_encoder(input_dim, encoder_hidden)
+    dec_weights, dec_biases = initialize_decoder(latent_dim, decoder_hidden, input_dim)
 
-cm = confusion_matrix(y, y_pred)
-print(f"\nConfusion Matrix:")
-print(f"True Negatives  (Normal correctly identified): {cm[0][0]}")
-print(f"False Positives (Normal flagged as fraud):     {cm[0][1]}")
-print(f"False Negatives (Fraud missed):                {cm[1][0]}")
-print(f"True Positives  (Fraud correctly caught):      {cm[1][1]}")
+    # Train
+    print("\nTraining autoencoder...")
+    encoder_weights, encoder_biases, dec_weights, dec_biases, losses = train_autoencoder(
+        x_train,
+        encoder_weights,
+        encoder_biases,
+        dec_weights,
+        dec_biases,
+        epochs=300,
+        learning_rate=0.003,
+        patience=20
+    )
 
-# PLOTS LOSS CURVE
-import matplotlib.pyplot as plt
+    # Anomaly Detection
+    print("\nRunning anomaly detection...")
 
-plt.figure(figsize=(8, 5))
-plt.plot(losses)
-plt.title("Training Loss Over Epochs")
-plt.xlabel("Epoch")
-plt.ylabel("MSE Loss")
-plt.grid(True)
-plt.savefig("loss_curve.png")
-print("\nLoss curve saved as loss_curve.png")
+    latent_test, _ = encoder_forward(x_test, encoder_weights, encoder_biases)
+    reconstructed_test, _ = decoder_forward(latent_test, dec_weights, dec_biases)
+    test_errors = np.mean((x_test - reconstructed_test) ** 2, axis=1)
+
+    x_all = scaler.transform(x)
+    latent_all, _ = encoder_forward(x_all, encoder_weights, encoder_biases)
+    reconstructed_all, _ = decoder_forward(latent_all, dec_weights, dec_biases)
+    all_errors = np.mean((x_all - reconstructed_all) ** 2, axis=1)
+
+    # Threshold tuning analysis
+    print("\nThreshold Tuning Analysis:")
+    print(f"{'Percentile':<15} {'Threshold':<15} {'Precision':<12} {'Recall':<12} {'F1':<12}")
+    print("-" * 65)
+
+    for percentile in [90, 93, 95, 97, 99]:
+        thresh = np.percentile(test_errors, percentile)
+        y_pred_thresh = (all_errors > thresh).astype(int)
+        p = precision_score(y, y_pred_thresh, zero_division=0)
+        r = recall_score(y, y_pred_thresh, zero_division=0)
+        f = f1_score(y, y_pred_thresh, zero_division=0)
+        print(f"{percentile:<15} {thresh:<15.6f} {p:<12.4f} {r:<12.4f} {f:<12.4f}")
+
+    threshold = np.percentile(test_errors, 97)
+    y_pred = (all_errors > threshold).astype(int)
+
+    # Evaluation
+    precision = precision_score(y, y_pred)
+    recall = recall_score(y, y_pred)
+    f1 = f1_score(y, y_pred)
+    roc = roc_auc_score(y, all_errors)
+
+    print("\nEvaluation Results:")
+    print(f"Precision: {precision:.4f}")
+    print(f"Recall: {recall:.4f}")
+    print(f"F1 Score: {f1:.4f}")
+    print(f"ROC-AUC: {roc:.4f}")
+
+    cm = confusion_matrix(y, y_pred)
+
+    print("\nConfusion Matrix:")
+    print(f"True Negatives  (Normal correctly identified): {cm[0][0]}")
+    print(f"False Positives (Normal flagged as fraud):     {cm[0][1]}")
+    print(f"False Negatives (Fraud missed):                {cm[1][0]}")
+    print(f"True Positives  (Fraud correctly caught):      {cm[1][1]}")
+
+    # Logging
+    params = {
+        "Number of Layers": "3 (Encoder + Decoder)",
+        "Neurons": "(30, 16, 8, 16, 30)",
+        "Error Function": "MSE",
+        "Learning Rate": 0.003,
+        "Epochs": 300,
+        "Batch Size": 256,
+        "Train/Test Split": "80:20",
+        "Dataset Size": x.shape[0],
+        "Threshold": f"{threshold:.6f}"
+    }
+
+    results = {
+        "Precision": f"{precision:.4f}",
+        "Recall": f"{recall:.4f}",
+        "F1 Score": f"{f1:.4f}",
+        "ROC-AUC": f"{roc:.4f}",
+        "True Negatives": cm[0][0],
+        "False Positives": cm[0][1],
+        "False Negatives": cm[1][0],
+        "True Positives": cm[1][1]
+    }
+
+    log_experiment("experiment_log.txt", params, results)
+
+    print("\nExperiment log saved.")
+
+    # Plot
+    plt.figure(figsize=(8, 5))
+    plt.plot(losses)
+    plt.title("Training Loss Over Epochs")
+    plt.xlabel("Epoch")
+    plt.ylabel("MSE Loss")
+    plt.grid(True)
+    plt.savefig("loss_curve.png")
+    print("\nLoss curve saved as loss_curve.png")

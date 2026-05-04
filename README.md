@@ -1,11 +1,14 @@
-# Project
+# Project Overview
+This project implements a custom neural network autoencoder (built from scratch using NumPy) to perform anomaly detection for credit card fraud detection. The model is trained on normal transactions and detects fraud based on reconstruction error.
 
-## Dataset:
+## Dataset
 The dataset is hosted publicly on AWS S3 and is automatically downloaded at runtime.
-No manual download is required.
+- Source: AWS S3
+- URL: https://detect-credit-card-fraud.s3.amazonaws.com/creditcard.csv
 
-## URL:
-https://detect-credit-card-fraud.s3.amazonaws.com/creditcard.csv
+## Requirements
+Install dependencies before running:
+pip install numpy pandas scikit-learn matplotlib
 
 ## To Run:
-python3 encoder.py
+python3 fraud_detection.py
