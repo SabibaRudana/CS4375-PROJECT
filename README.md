@@ -1,3 +1,8 @@
+# Team Members:
+Dana Ibrahim dyi230000
+Sumaiya Lana ssl240001
+Sabiba Rudana srr220008
+
 # Project Overview
 This project implements a custom neural network autoencoder (built from scratch using NumPy) to perform anomaly detection for credit card fraud detection. The model is trained on normal transactions and detects fraud based on reconstruction error.
 
